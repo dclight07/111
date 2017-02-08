@@ -1,9 +1,9 @@
 <?php
 		function create_stripe_charge($customer=0,$level_id=0,$prid=0, $connected_account=0){
-			$level_amount =
-			$level_title = 
-			$fixed_connected_fees = 
-				
+			$level_amount = get_post_meta($prid, 'project_level_amount'.$level_id, true);
+			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
+			$connected_fees = get_option('rzr_stripe_fee_amount');
+			$fixed_connected_fees = round(($connected_fees * $level_amount), 2);
 			$args = array(
 				"amount" => $level_amount*100, // amount in cents, again
 		                "currency" => "usd",
@@ -160,13 +160,23 @@
 			else {
 				return $customer;
 			}
-			
 		}
 
 		function create_stripe_plan($level_id=0, $prid=0, $connected_account=0){
 			$pr=get_post($prid);
-			$recurring = GET RECURRING AMOUNT FROM LEVEL ID
-			$interval = GET INTERVAL FOR LEVEL
+			$recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
+			$level_freq = get_post_meta($prid, 'project_level_frequency'.$level_id, true);
+			if($level_freq == 'yearly') {
+				$interval = 'year'; 
+				} 
+				else { 
+					if($level_freq == 'monthly'){
+					$interval = 'month'; 
+				}
+				else {
+					$interval = 'week'; 
+				}
+			}
 			try{
 				if($connected_account){
 					$plan = \Stripe\Plan::create(array(
@@ -244,7 +254,7 @@
 		}
 
 		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0){
-			$connected_fees = FORMULA TO GET CONNECTED FEE
+			$connected_fees = get_option('rzr_stripe_fee_amount');
 			try{
 				if($connected_account){
 		              	  	$args_stripe = array(
