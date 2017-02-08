@@ -247,6 +247,12 @@
 			}
 		}
 
+		function update_stripe_card(){
+		}
+
+		function update_stripe_bank(){
+		}
+
 		function process_checkout_step_3(){
 			if(isset($_POST['stripeToken']) || isset($_POST['public_token']))
 		    {	
