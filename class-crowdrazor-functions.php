@@ -19,10 +19,10 @@
 				if($connected_account)
 				{
 					$args['application_fee'] = $fixed_connected_fees;
-					$charge = \Stripe\Charge::create($args, array("stripe_account" => $connected_account));	
+					$result = \Stripe\Charge::create($args, array("stripe_account" => $connected_account));	
 				}
 				else{
-     					$charge = \Stripe\Charge::create($args);	
+     					$result = \Stripe\Charge::create($args);	
 				}
 			}
 			catch(\Stripe\Error\Card $e) {
@@ -48,7 +48,7 @@
 				// (maybe you changed API keys recently)
 				$body = $e->getJsonBody();
 				$err  = $body['error'];
-				$error=1;
+				$error=1;res
 				$error_message = $err['message'];
 				} catch (\Stripe\Error\ApiConnection $e) {
 				// Network communication with Stripe failed
@@ -72,12 +72,12 @@
 				}
 		              	
 		            }
-			if($error==1){
-				return $error_message;
-			}
-			else {
-				return $charge;
-			}
+			$response=array(
+				"error"=>$error,
+				"error_message"=>$error_message,
+				"result"=>$result
+				);
+			return $response;
 		}
 			
 
@@ -92,7 +92,7 @@
 			\Stripe\Stripe::setApiKey($api_key);
 			try{
 				if($connected_account){
-					$customer = \Stripe\Customer::create(array(
+					$result = \Stripe\Customer::create(array(
 						"source" => $token,
 						'description' => $first_name." ".$last_name,
 						"email" => $user_email),
@@ -100,7 +100,7 @@
 					);	
 				}
 				else {
-					$customer = \Stripe\Customer::create(array(
+					$result = \Stripe\Customer::create(array(
 						"source" => $token,
 						'description' => $first_name." ".$last_name,
 						"email" => $user_email)
@@ -154,12 +154,12 @@
 				}
 		              	
 		            }
-			if($error==1){
-				return $error_message;
-			}
-			else {
-				return $customer;
-			}
+			$response=array(
+				"error"=>$error,
+				"error_message"=>$error_message,
+				"result"=>$result
+				);
+			return $response;
 		}
 
 		function create_stripe_plan($level_id=0, $prid=0, $connected_account=0){
@@ -179,7 +179,7 @@
 			}
 			try{
 				if($connected_account){
-					$plan = \Stripe\Plan::create(array(
+					$result = \Stripe\Plan::create(array(
 						"amount" => round($recurring,2)*100,
 						"interval" => $interval,
 						"name" => $pr->post_title.' : level '.$level_id,
@@ -190,7 +190,7 @@
 				}
 				else
 				{
-					$plan = \Stripe\Plan::create(array(
+					$result = \Stripe\Plan::create(array(
 						"amount" => round($recurring,2)*100,
 						"interval" => $interval,
 						"name" => $pr->post_title.' : level '.$level_id,
@@ -245,12 +245,12 @@
 				$error_message = $err['message'];
 				}
 		        }
-			if($error==1){
-				return $error_message;
-			}
-			else {
-				return $plan;
-			}
+			$response=array(
+				"error"=>$error,
+				"error_message"=>$error_message,
+				"result"=>$result
+				);
+			return $response;
 		}
 
 		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0){
@@ -267,7 +267,7 @@
 						{
 							$args_stripe['trial_end'] = $trial_end;
 						}	              	  	
-		              	  	$subscription = \Stripe\Subscription::create($args_stripe,
+		              	  	$result = \Stripe\Subscription::create($args_stripe,
 		                    		array("stripe_account" => $connected_account)
 		              	  	);	
 		         	} 
@@ -282,7 +282,7 @@
 						{
 							$args_stripe['trial_end'] = $trial_end;
 						}	              	  	
-		              	  	$subscription = \Stripe\Subscription::create($args_stripe);	
+		              	  	$result = \Stripe\Subscription::create($args_stripe);	
 				}
 			}
 			catch(\Stripe\Error\Card $e) {
@@ -331,12 +331,12 @@
 				$error_message = $err['message'];
 				}
 		        }
-			if($error==1){
-				return $error_message;
-			}
-			else {
-				return $subscription;
-			}
+			$response=array(
+				"error"=>$error,
+				"error_message"=>$error_message,
+				"result"=>$result
+				);
+			return $response;
 		}
 
 ///update customer card function that already exists may work for card and bank
