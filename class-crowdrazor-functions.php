@@ -166,9 +166,12 @@
 		}
 
 		function create_stripe_plan($level_id=0, $prid=0, $connected_account=0){
+			global $wpdb;
 			$pr=get_post($prid);
 			$recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
 			$level_freq = get_post_meta($prid, 'project_level_frequency'.$level_id, true);
+			$stripe_plan_id = $pr->post_name.' : level '.$level_id;
+			$stripe_plan_name = $pr->post_title.' : level '.$level_id;
 			if($level_freq == 'yearly') {
 				$interval = 'year'; 
 				} 
@@ -185,9 +188,9 @@
 					$result = \Stripe\Plan::create(array(
 						"amount" => round($recurring,2)*100,
 						"interval" => $interval,
-						"name" => $pr->post_title.' : level '.$level_id,
+						"name" => $stripe_plan_name,
 						"currency" => "usd",
-						"id" => $pr->post_name.'_level'.$level_id),
+						"id" => $stripe_plan_id,
 						array("stripe_account" => $connected_account)
 					);
 				}
@@ -196,9 +199,9 @@
 					$result = \Stripe\Plan::create(array(
 						"amount" => round($recurring,2)*100,
 						"interval" => $interval,
-						"name" => $pr->post_title.' : level '.$level_id,
+						"name" => $stripe_plan_name,
 						"currency" => "usd",
-						"id" => $pr->post_name.'_level'.$level_id)
+						"id" => $stripe_plan_id)
 					);
 				}
 			}
@@ -253,6 +256,16 @@
 				"error_message"=>$error_message,
 				"result"=>$result
 				);
+		if($connected_account && $error != 1)
+		              	  	{
+		              	  		$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `connected`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$strip_plan_id."', '".$connected_account."', NOW())");
+		              	  	}
+		              	  	else
+		              	  	{ 
+						if($error!=1) {
+		              	  			$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$strip_plan_id."', NOW())");
+						}
+					}
 			return $response;
 		}
 
@@ -470,118 +483,10 @@
 
 		            if($stripe_user_id=='')
 		            {
-		              if($connected_account)
-		              {
-		              	try{
-							$customer = \Stripe\Customer::create(array(
-							"source" => $token,
-							'description' => $first_name." ".$last_name,
-							"email" => $current_user->data->user_email),
-							array("stripe_account" => $connected_account)
-							);	
-						}
-		              	catch(\Stripe\Error\Card $e) {
-  								// Since it's a decline, \Stripe\Error\Card will be caught
-  								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\RateLimit $e) {
-								// Too many requests made to the API too quickly
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\InvalidRequest $e) {
-								// Invalid parameters were supplied to Stripe's API
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\Authentication $e) {
-								// Authentication with Stripe's API failed
-								// (maybe you changed API keys recently)
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\ApiConnection $e) {
-								// Network communication with Stripe failed
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\Base $e) {
-								// Display a very generic error to the user, and maybe send
-								// yourself an email
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (Exception $e) {
-								// Something else happened, completely unrelated to Stripe
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								}
-		              	
-		              }
-		              else
-		              {
-		              	try {
-							$customer = \Stripe\Customer::create(array(
-							"source" => $token,
-							'description' => $first_name." ".$last_name,
-							"email" => $current_user->data->user_email)
-							);	
-							}
-		              	catch(\Stripe\Error\Card $e) {
-  								// Since it's a decline, \Stripe\Error\Card will be caught
-  								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\RateLimit $e) {
-								// Too many requests made to the API too quickly
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\InvalidRequest $e) {
-								// Invalid parameters were supplied to Stripe's API
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\Authentication $e) {
-								// Authentication with Stripe's API failed
-								// (maybe you changed API keys recently)
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\ApiConnection $e) {
-								// Network communication with Stripe failed
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (\Stripe\Error\Base $e) {
-								// Display a very generic error to the user, and maybe send
-								// yourself an email
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								} catch (Exception $e) {
-								// Something else happened, completely unrelated to Stripe
-								$body = $e->getJsonBody();
-								$err  = $body['error'];
-								$error=1;
-								$error_message = $err['message'];
-								}
-		              }
+				   $response = $this->create_stripe_customer($current_user->ID, $connected_account, $token);
+				    	$error = $response['error'];
+					$error_message = $response['error_message'];
+					$customer = $response['result'];
 		             
 		              if($error!=1){ $customer_arr = $customer->__toArray(true); }
 		              if(!empty($customer_arr))
