@@ -1,4 +1,86 @@
 <?php
+		function create_stripe_charge($customer=0,$level_id=0,$prid=0, $connected_account=0){
+			$level_amount =
+			$level_title = 
+			$fixed_connected_fees = 
+				
+			$args = array(
+				"amount" => $level_amount*100, // amount in cents, again
+		                "currency" => "usd",
+		                "customer" => $customer,
+		                "metadata" => array(
+		                    'level_id' => $level_id,
+		                    'level_name' => $level_title,
+		                    'level_amount' => $level_amount,
+		                    'project_id' => $prid
+		                  )
+			);
+			try{
+				if($connected_account)
+				{
+					$args['application_fee'] = $fixed_connected_fees;
+					$charge = \Stripe\Charge::create($args, array("stripe_account" => $connected_account));	
+				}
+				else{
+     					$charge = \Stripe\Charge::create($args);	
+				}
+			}
+			catch(\Stripe\Error\Card $e) {
+  				// Since it's a decline, \Stripe\Error\Card will be caught
+  				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\RateLimit $e) {
+				// Too many requests made to the API too quickly
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\InvalidRequest $e) {
+				// Invalid parameters were supplied to Stripe's API
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Authentication $e) {
+				// Authentication with Stripe's API failed
+				// (maybe you changed API keys recently)
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\ApiConnection $e) {
+				// Network communication with Stripe failed
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Base $e) {
+				// Display a very generic error to the user, and maybe send
+				// yourself an email
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (Exception $e) {
+				// Something else happened, completely unrelated to Stripe
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				}
+		              	
+		            }
+			if($error==1){
+				return $error_message;
+			}
+			else {
+				return $charge;
+			}
+		}
+			
+
 		function create_stripe_customer($user_id=0, $connected_account=0, $token=0){
 			$first_name = get_user_meta($user_id, 'first_name', true);
 		        $last_name = get_user_meta($user_id, 'last_name', true);
