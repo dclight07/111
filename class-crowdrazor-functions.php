@@ -81,10 +81,170 @@
 			
 		}
 
-		function create_stripe_plan(){
+		function create_stripe_plan($level_id=0, $prid=0, $connected_account=0){
+			$pr=get_post($prid);
+			$recurring = GET RECURRING AMOUNT FROM LEVEL ID
+			$interval = GET INTERVAL FOR LEVEL
+			try{
+				if($connected_account){
+					$plan = \Stripe\Plan::create(array(
+						"amount" => round($recurring,2)*100,
+						"interval" => $interval,
+						"name" => $pr->post_title.' : level '.$level_id,
+						"currency" => "usd",
+						"id" => $pr->post_name.'_level'.$level_id),
+						array("stripe_account" => $connected_account)
+					);
+				}
+				else
+				{
+					$plan = \Stripe\Plan::create(array(
+						"amount" => round($recurring,2)*100,
+						"interval" => $interval,
+						"name" => $pr->post_title.' : level '.$level_id,
+						"currency" => "usd",
+						"id" => $pr->post_name.'_level'.$level_id)
+					);
+				}
+			}
+			catch(\Stripe\Error\Card $e) {
+  				// Since it's a decline, \Stripe\Error\Card will be caught
+  				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\RateLimit $e) {
+				// Too many requests made to the API too quickly
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\InvalidRequest $e) {
+				// Invalid parameters were supplied to Stripe's API
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Authentication $e) {
+				// Authentication with Stripe's API failed
+				// (maybe you changed API keys recently)
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\ApiConnection $e) {
+				// Network communication with Stripe failed
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Base $e) {
+				// Display a very generic error to the user, and maybe send
+				// yourself an email
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (Exception $e) {
+				// Something else happened, completely unrelated to Stripe
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				}
+		        }
+			if($error==1){
+				return $error_message;
+			}
+			else {
+				return $plan;
+			}
 		}
 
-		function create_stripe_subscription(){
+		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0){
+			$connected_fees = FORMULA TO GET CONNECTED FEE
+			try{
+				if($connected_account){
+		              	  	$args_stripe = array(
+				                "customer" => $customer,
+		                    		"plan" => $plan_id,
+		                    		'application_fee_percent' => $connected_fees,
+		                    		"metadata" => array("project_id" => $prid, "level_id"=>$level_id)
+				         );
+					if($trial_end!='' && date('d-m-Y')!=date('d-m-Y', $trial_end))
+						{
+							$args_stripe['trial_end'] = $trial_end;
+						}	              	  	
+		              	  	$subscription = \Stripe\Subscription::create($args_stripe,
+		                    		array("stripe_account" => $connected_account)
+		              	  	);	
+		         	} 
+				else{
+					$args_stripe = array(
+				           	"customer" => $customer_arr['id'],
+		                    		"plan" => $strip_plan_id,
+		                    		'application_fee_percent' => $connected_fees,
+		                    		"metadata" => array("project_id" => $prid, "level_id"=>$level_id)
+				         );
+					if($trial_end!='' && date('d-m-Y')!=date('d-m-Y', $trial_end))
+						{
+							$args_stripe['trial_end'] = $trial_end;
+						}	              	  	
+		              	  	$subscription = \Stripe\Subscription::create($args_stripe);	
+				}
+			}
+			catch(\Stripe\Error\Card $e) {
+  				// Since it's a decline, \Stripe\Error\Card will be caught
+  				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\RateLimit $e) {
+				// Too many requests made to the API too quickly
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\InvalidRequest $e) {
+				// Invalid parameters were supplied to Stripe's API
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Authentication $e) {
+				// Authentication with Stripe's API failed
+				// (maybe you changed API keys recently)
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\ApiConnection $e) {
+				// Network communication with Stripe failed
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Base $e) {
+				// Display a very generic error to the user, and maybe send
+				// yourself an email
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (Exception $e) {
+				// Something else happened, completely unrelated to Stripe
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				}
+		        }
+			if($error==1){
+				return $error_message;
+			}
+			else {
+				return $subscription;
+			}
 		}
 
 		function process_checkout_step_3(){
