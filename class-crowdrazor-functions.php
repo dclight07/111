@@ -247,11 +247,7 @@
 			}
 		}
 
-		function update_stripe_card(){
-		}
-
-		function update_stripe_bank(){
-		}
+///update customer card function that already exists may work for card and bank
 
 		function process_checkout_step_3(){
 			if(isset($_POST['stripeToken']) || isset($_POST['public_token']))
