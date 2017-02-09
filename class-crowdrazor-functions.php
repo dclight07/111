@@ -1,4 +1,13 @@
 <?php
+		function log_stripe_error($user_id=0,$error_message=0){
+		}
+
+		function clear_stripe_error($user_id=0){
+		}
+
+		function retrieve_stripe_error($user_id=0){
+		}
+
 		function create_stripe_charge($customer=0,$level_id=0,$prid=0, $connected_account=0){
 			$level_amount = get_post_meta($prid, 'project_level_amount'.$level_id, true);
 			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
