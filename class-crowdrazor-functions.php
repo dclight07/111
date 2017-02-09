@@ -153,10 +153,20 @@
 				}
 		              	
 		            }
+
+			if($error!=1){
+				$customer_arr = $result->__toArray(true); 
+				if($connected_account){
+				        $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `connected`, `created_on`) VALUES(".$user_id.", '".$customer_arr['id']."', '".$connected_account."', NOW())"); 	
+				}
+				else{
+				        $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `created_on`) VALUES(".$user_id.", '".$customer_arr['id']."', NOW())"); 
+				}
+			}
 			$response=array(
 				"error"=>$error,
 				"error_message"=>$error_message,
-				"result"=>$result
+				"customer_id"=>$customer_arr['id']
 				);
 			return $response;
 		}
@@ -461,16 +471,7 @@
 				    	$error = $response['error'];
 		              	if($error!=1){ 
 					$error_message = $response['error_message'];
-					$customer = $response['result'];
-		             		$customer_id = $response['result']['id'];
-					
-					$customer_arr = $customer->__toArray(true); 
-					if($connected_account){
-				        	 $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `connected`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', '".$connected_account."', NOW())"); 	
-					}
-					else{
-				         	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', NOW())"); 
-					}
+		             		$customer_id = $response['customer_id';
 				}
 			}
 		         
