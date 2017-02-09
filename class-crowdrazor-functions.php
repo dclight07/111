@@ -79,10 +79,6 @@
 				);
 			return $response;
 		}
-			
-		$error = $response['error'];
-		$error_message = $response['error_message'];
-		$cusotomer = $response['result']['id OR STRIPE EQUIVALENT'];
 
 		function create_stripe_customer($user_id=0, $connected_account=0, $token=0){
 			$first_name = get_user_meta($user_id, 'first_name', true);
