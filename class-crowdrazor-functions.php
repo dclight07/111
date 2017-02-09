@@ -269,7 +269,7 @@
 			return $response;
 		}
 
-		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0){
+		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0, $connected_account=0){
 			$connected_fees = get_option('rzr_stripe_fee_amount');
 			try{
 				if($connected_account){
