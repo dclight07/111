@@ -1,11 +1,18 @@
 <?php
 		function log_stripe_error($user_id=0,$error_message=0){
+			global $wpdb;
+			$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_errors(`user_id`, `error_message`,`created_on`) VALUES(".$user_id.", '".$error_message."', NOW())"); 	
 		}
 
 		function clear_stripe_error($user_id=0){
+			global $wpdb;
+			$wpdb->query("DELETE * FROM ".$wpdb->prefix."rzr_stripe_errors WHERE 'user_id'=".$user_id);
 		}
 
 		function retrieve_stripe_error($user_id=0){
+			global $wpdb;
+			$error_message = $wpdb->get_var("SELECT 'error_message' FROM ".$wpdb->prefix."rzr_stripe_errors WHERE 'user_id'=".$user_id);
+		        return $error_message;
 		}
 
 		function create_stripe_customer($user_id=0, $connected_account=0, $token=0){
@@ -84,7 +91,6 @@
 				}
 		              	
 		            }
-
 			if($error!=1){
 				$customer_arr = $result->__toArray(true); 
 				if($connected_account){
@@ -92,8 +98,7 @@
 				}
 				else{
 				        $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `created_on`) VALUES(".$user_id.", '".$customer_arr['id']."', NOW())"); 
-				}
-				
+				}	
 				$response=array(
 					"error"=>$error,
 					"customer_id"=>$customer_arr['id']
@@ -106,12 +111,12 @@
 					"customer_id"=>""
 				);
 			}
-
 			return $response;
 		}
 
 
 		function create_stripe_charge($user_id=0, $customer=0,$level_id=0,$prid=0, $connected_account=0){
+			global $wpdb;
 			$this->clear_stripe_error($user_id);
 			$error=0;
 			$level_amount = get_post_meta($prid, 'project_level_amount'.$level_id, true);
@@ -186,11 +191,22 @@
 				}
 		              	
 		            }
-			$response=array(
-				"error"=>$error,
-				"error_message"=>$error_message,
-				"result"=>$result
+			if($error!=1){
+				$charge_arr = $result->__toArray(true);
+				$response=array(
+					"error"=>$error,
+					"charge_id"=>$charge_arr['id']
+					);
+				$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_transactions(`level_id`, `level_title`, `level_amount`, `trans_id`, `object`, `amount`, `amount_refunded`, `application_fee`, `balance_transaction`, `captured`, `created`, `currency`, `customer`, `description`, `destination`, `dispute`, `failure_code`, `failure_message`, `invoice`, `livemode`, `stripe_order`, `paid`, `receipt_email`, `receipt_number`, `refunded`, `shipping`, `source_transfer`, `statement_descriptor`, `status`, `created_on`) VALUES('".$charge_arr['metadata']['level_id']."', '".$charge_arr['metadata']['level_name']."', '".$charge_arr['metadata']['level_amount']."', '".$charge_arr['id']."', '".$charge_arr['object']."', '".$charge_arr['amount']."', '".$charge_arr['amount_refunded']."', '".$charge_arr['application_fee']."', '".$charge_arr['balance_transaction']."', '".$charge_arr['captured']."', '".$charge_arr['created']."', '".$charge_arr['currency']."', '".$charge_arr['customer']."', '".$charge_arr['description']."', '".$charge_arr['destination']."', '".$charge_arr['dispute']."', '".$charge_arr['failure_code']."', '".$charge_arr['failure_message']."', '".$charge_arr['invoice']."', '".$charge_arr['livemode']."', '".$charge_arr['order']."', '".$charge_arr['paid']."', '".$charge_arr['receipt_email']."', '".$charge_arr['receipt_number']."', '".$charge_arr['refunded']."', '".$charge_arr['shipping']."', '".$charge_arr['source_transfer']."', '".$charge_arr['statement_descriptor']."', '".$charge_arr['status']."', NOW())")
+		                $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_payments(`user_id`, `project_id`, `level_id`, `payment`, `created_on`) VALUES('".$user_id."', '".$prid."', '".$level_id."', '".($charge_arr['amount']/100)."', NOW())");
+			}
+			if($error==1){
+				$this->log_stripe_error($user_id,$error_message);
+				$response=array(
+					"error"=>$error,
+					"charge_id"=>""
 				);
+			}
 			return $response;
 		}
 
@@ -282,21 +298,28 @@
 				$error_message = $err['message'];
 				}
 		        }
-			$response=array(
-				"error"=>$error,
-				"error_message"=>$error_message,
-				"result"=>$result
+			if($error!=1){
+				$plan_arr = $result->__toArray(true);
+				$response=array(
+					"error"=>$error,
+					"plan_id"=>$plan_arr['id']
+					);
+				if($connected_account)
+		              	  {
+		              	  	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `connected`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$plan_arr['id']."', '".$connected_account."', NOW())");
+		              	  }
+		              	  else
+		              	  { 
+		              	  	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$plan_arr['id']."', NOW())");
+				  }
+			}
+			if($error==1){
+				$this->log_stripe_error($user_id,$error_message);
+				$response=array(
+					"error"=>$error,
+					"plan_id"=>""
 				);
-		if($connected_account && $error != 1)
-		              	  	{
-		              	  		$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `connected`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$strip_plan_id."', '".$connected_account."', NOW())");
-		              	  	}
-		              	  	else
-		              	  	{ 
-						if($error!=1) {
-		              	  			$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_plans(`project_id`, `level_id`, `stripe_plan_id`, `created_on`) VALUES('".$prid."', '".$level_id."', '".$strip_plan_id."', NOW())");
-						}
-					}
+			}
 			return $response;
 		}
 
@@ -380,11 +403,28 @@
 				$error_message = $err['message'];
 				}
 		        }
-			$response=array(
-				"error"=>$error,
-				"error_message"=>$error_message,
-				"result"=>$result
+			if($error!=1){
+				$subs_arr = $result->__toArray(true);
+				$response=array(
+					"error"=>$error,
+					"subs_id"=>$subs_arr['id']
+					);
+				if($connected_account)
+		                  {
+		                  	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_subscriptions(`level_id`, `level_title`, `level_amount`, `user_id`, `project_id`, `subscription_id`, `object`, `application_fee_percent`, `cancel_at_period_end`, `canceled_at`, `created`, `current_period_end`, `current_period_start`, `customer`, `discount`, `ended_at`, `quantity`, `start`, `status`, `tax_percent`, `trial_end`, `trial_start`, `connected`, `created_on`) VALUES('".$level_id."', '".$subs_arr['plan']['object']."', '".$subs_arr['plan']['amount']."', ".$user_id.",  '".$prid."',  '".$subs_arr['id']."', '".$subs_arr['object']."', '".$subs_arr['application_fee_percent']."', '".$subs_arr['cancel_at_period_end']."', '".$subs_arr['canceled_at']."', '".$subs_arr['created']."', '".$subs_arr['current_period_end']."', '".$subs_arr['current_period_start']."', '".$subs_arr['customer']."', '".$subs_arr['discount']."', '".$subs_arr['ended_at']."', '".$subs_arr['quantity']."', '".$subs_arr['start']."', '".$subs_arr['status']."', '".$subs_arr['tax_percent']."', '".$subs_arr['trial_end']."', '".$subs_arr['trial_start']."', '".$connected_account."', NOW())");
+		                  }
+		                  else
+		                  {
+		                  	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_subscriptions(`level_id`, `level_title`, `level_amount`, `user_id`, `project_id`, `subscription_id`, `object`, `application_fee_percent`, `cancel_at_period_end`, `canceled_at`, `created`, `current_period_end`, `current_period_start`, `customer`, `discount`, `ended_at`, `quantity`, `start`, `status`, `tax_percent`, `trial_end`, `trial_start`, `created_on`) VALUES('".$level_id."', '".$subs_arr['plan']['object']."', '".$subs_arr['plan']['amount']."', ".$user_id.",  '".$prid."',  '".$subs_arr['id']."', '".$subs_arr['object']."', '".$subs_arr['application_fee_percent']."', '".$subs_arr['cancel_at_period_end']."', '".$subs_arr['canceled_at']."', '".$subs_arr['created']."', '".$subs_arr['current_period_end']."', '".$subs_arr['current_period_start']."', '".$subs_arr['customer']."', '".$subs_arr['discount']."', '".$subs_arr['ended_at']."', '".$subs_arr['quantity']."', '".$subs_arr['start']."', '".$subs_arr['status']."', '".$subs_arr['tax_percent']."', '".$subs_arr['trial_end']."', '".$subs_arr['trial_start']."', NOW())");
+		                  }	
+			}
+			if($error==1){
+				$this->log_stripe_error($user_id,$error_message);
+				$response=array(
+					"error"=>$error,
+					"subs_id"=>""
 				);
+			}				       
 			return $response;
 		}
 
