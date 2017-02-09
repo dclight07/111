@@ -81,6 +81,7 @@
 		}
 
 		function create_stripe_customer($user_id=0, $connected_account=0, $token=0){
+			global $wpdb;
 			$first_name = get_user_meta($user_id, 'first_name', true);
 		        $last_name = get_user_meta($user_id, 'last_name', true);
 			$user_info = get_userdata($user_id);
