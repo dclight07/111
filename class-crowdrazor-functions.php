@@ -10,6 +10,8 @@
 
 		function create_stripe_customer($user_id=0, $connected_account=0, $token=0){
 			global $wpdb;
+			$this->clear_stripe_error($user_id);
+			$error=0;
 			$first_name = get_user_meta($user_id, 'first_name', true);
 		        $last_name = get_user_meta($user_id, 'last_name', true);
 			$user_info = get_userdata($user_id);
@@ -109,7 +111,9 @@
 		}
 
 
-		function create_stripe_charge($customer=0,$level_id=0,$prid=0, $connected_account=0){
+		function create_stripe_charge($user_id=0, $customer=0,$level_id=0,$prid=0, $connected_account=0){
+			$this->clear_stripe_error($user_id);
+			$error=0;
 			$level_amount = get_post_meta($prid, 'project_level_amount'.$level_id, true);
 			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
 			$connected_fees = get_option('rzr_stripe_fee_amount');
@@ -190,8 +194,10 @@
 			return $response;
 		}
 
-		function create_stripe_plan($level_id=0, $prid=0, $connected_account=0){
+		function create_stripe_plan($user_id, $level_id=0, $prid=0, $connected_account=0){
 			global $wpdb;
+			$this->clear_stripe_error($user_id);
+			$error=0;
 			$pr=get_post($prid);
 			$recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
 			$level_freq = get_post_meta($prid, 'project_level_frequency'.$level_id, true);
@@ -294,7 +300,9 @@
 			return $response;
 		}
 
-		function create_stripe_subscription($customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0, $connected_account=0){
+		function create_stripe_subscription($user_id=0, $customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0, $connected_account=0){
+			$this->clear_stripe_error($user_id);
+			$error=0;
 			$connected_fees = get_option('rzr_stripe_fee_amount');
 			try{
 				if($connected_account){
@@ -497,7 +505,7 @@
 			//one time charge
 			if($_POST['recurring']=='' && $customer_id){
 				//charge customer
-				$response = $this->create_stripe_charge($customer_id, $level_id, $prid, $connected_account);
+				$response = $this->create_stripe_charge($current_user->ID, $customer_id, $level_id, $prid, $connected_account);
 				$error = $response['error'];
 				//update tables for one time
 				if($error!=1){
