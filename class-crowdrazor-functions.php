@@ -357,10 +357,10 @@
 
 ///update customer card function that already exists may work for card and bank
 
-		function process_checkout_step_3(){
-			if(isset($_POST['stripeToken']) || isset($_POST['public_token']))
+	function process_checkout_step_3(){
+		if(isset($_POST['stripeToken']) || isset($_POST['public_token']))
 		    {	
-		    	if(isset($_POST['public_token'])){
+		    		if(isset($_POST['public_token'])){
 						$public_token = $_POST['public_token'];
 						$account_id = $_POST['account_id'];
 						if(get_option('rzr_stripe_test_mode') == "on"){
@@ -392,40 +392,38 @@
 						$token = $_POST['stripeToken'];
 				}
 				
-				global $current_user;
-				global $wpdb;
-				$level_id = $_POST['level_id'];
-				$prid = $_POST['prid'];
-				$pr = get_post($prid);
-				$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
-				$level_checkout_stmt = get_post_meta($prid, 'project_checkout_stmt'.$level_id, true);
-				$level_description = get_post_meta($prid, 'project_level_description'.$level_id, true);
-				$level_amount = (get_post_meta($prid, 'project_level_amount'.$level_id, true)!=''?get_post_meta($prid, 'project_level_amount'.$level_id, true):0);
-				$level_type = (get_post_meta($prid, 'project_leveltype'.$level_id, true)!=''?get_post_meta($prid, 'project_leveltype'.$level_id, true):'one-time');
-				if($level_type == 'recurring')
+			global $current_user;
+			global $wpdb;
+			$level_id = $_POST['level_id'];
+			$prid = $_POST['prid'];
+			$pr = get_post($prid);
+			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
+			$level_checkout_stmt = get_post_meta($prid, 'project_checkout_stmt'.$level_id, true);
+			$level_description = get_post_meta($prid, 'project_level_description'.$level_id, true);
+			$level_amount = (get_post_meta($prid, 'project_level_amount'.$level_id, true)!=''?get_post_meta($prid, 'project_level_amount'.$level_id, true):0);
+			$level_type = (get_post_meta($prid, 'project_leveltype'.$level_id, true)!=''?get_post_meta($prid, 'project_leveltype'.$level_id, true):'one-time');
+			if($level_type == 'recurring')
 				{
 				  $recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
 				  $level_pmts = get_post_meta($prid, 'project_level_pmts'.$level_id, true);
 				  $level_freq = get_post_meta($prid, 'project_level_frequency'.$level_id, true);
 				}
-
-				$fn = get_user_meta($current_user->ID, 'first_name', true);
-				$ln = get_user_meta($current_user->ID, 'last_name', true);
-				$connected_fees = get_option('rzr_stripe_fee_amount');
+			$fn = get_user_meta($current_user->ID, 'first_name', true);
+			$ln = get_user_meta($current_user->ID, 'last_name', true);
+			$connected_fees = get_option('rzr_stripe_fee_amount');
 				
-				require 'stripe/vendor/autoload.php';
-				$stripe_keys = $this->get_stripe_keys();
-				$api_key = $stripe_keys['stripe_secret_key'];
-				$publishable_key = $stripe_keys['stripe_publishable_key'];	
-				\Stripe\Stripe::setApiKey($api_key);
+			require 'stripe/vendor/autoload.php';
+			$stripe_keys = $this->get_stripe_keys();
+			$api_key = $stripe_keys['stripe_secret_key'];
+			$publishable_key = $stripe_keys['stripe_publishable_key'];	
+			\Stripe\Stripe::setApiKey($api_key);
 				
-		    	
-		        $level_amount = ($_POST['level_amount']!=''?$_POST['level_amount']:0);
-		        $first_name = get_user_meta($current_user->ID, 'first_name', true);
-		        $last_name = get_user_meta($current_user->ID, 'last_name', true);
+		         $level_amount = ($_POST['level_amount']!=''?$_POST['level_amount']:0);
+		         $first_name = get_user_meta($current_user->ID, 'first_name', true);
+		         $last_name = get_user_meta($current_user->ID, 'last_name', true);
 		         
 		         if($_POST['display_name_type']!='') {
-		         $display_name = get_user_meta($current_user->ID, 'display_name_type', true);
+		         	$display_name = get_user_meta($current_user->ID, 'display_name_type', true);
 		         
 					 if($display_name){
 						update_user_meta($current_user->ID, 'display_name_type', $_POST['display_name_type']);
@@ -433,31 +431,90 @@
 						else {
 						add_user_meta($current_user->ID, 'display_name_type', $_POST['display_name_type']);
 						}
-		         }
+		         	}
 		         
-		         for ($x=1; $x<7; $x++)
-				 { 
-		         	if(isset($_POST['rzr_custom_meta_'.$x])) {
-		         	$rzr_custom_meta = get_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, true);
+		         	for ($x=1; $x<7; $x++)
+				 	{ 
+		         		if(isset($_POST['rzr_custom_meta_'.$x])) {
+		         		$rzr_custom_meta = get_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, true);
 		         
-		         	if($rzr_custom_meta){
-		         		update_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, $_POST['rzr_custom_meta_'.$x]);
-		         		}
-		         		else {
-		         		add_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, $_POST['rzr_custom_meta_'.$x]);
+		         		if($rzr_custom_meta){
+		         			update_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, $_POST['rzr_custom_meta_'.$x]);
+		         			}
+		         			else {
+		         			add_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, $_POST['rzr_custom_meta_'.$x]);
 		         		}
 		         	}
-				 }
+			}
 		         $connected_account = $this->get_connected_stripe_account($pr->post_author);
-		         if($connected_account)
+		         
+			//get stripe customer id
+			if($connected_account)
 		         {
-		         	$stripe_user_id = $wpdb->get_var("SELECT `stripe_user_id` FROM ".$wpdb->prefix."rzr_stripe_users WHERE `user_id`=".$current_user->ID." AND `connected`='".$connected_account."'");	
+		         	$customer_id = $wpdb->get_var("SELECT `stripe_user_id` FROM ".$wpdb->prefix."rzr_stripe_users WHERE `user_id`=".$current_user->ID." AND `connected`='".$connected_account."'");	
 		         }
 		         else
 		         {
-		         	$stripe_user_id = $wpdb->get_var("SELECT `stripe_user_id` FROM ".$wpdb->prefix."rzr_stripe_users WHERE `user_id`=".$current_user->ID);		
+		         	$customer_id = $wpdb->get_var("SELECT `stripe_user_id` FROM ".$wpdb->prefix."rzr_stripe_users WHERE `user_id`=".$current_user->ID);		
 		         }
+				
+			//create stripe customer if blank
+		        if($customer_id=='')
+		        {
+				$response = $this->create_stripe_customer($current_user->ID, $connected_account, $token);
+				    	$error = $response['error'];
+		              	if($error!=1){ 
+					$error_message = $response['error_message'];
+					$customer = $response['result'];
+		             		$customer_id = $response['result']['id'];
+					
+					$customer_arr = $customer->__toArray(true); 
+					if($connected_account){
+				        	 $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `connected`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', '".$connected_account."', NOW())"); 	
+					}
+					else{
+				         	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', NOW())"); 
+					}
+				}
+			}
 		         
+			//one time charge
+			if($_POST['recurring']=='' && $customer_id){
+				//charge customer
+				$response = $this->create_stripe_charge($customer_id, $level_id, $prid, $connected_account);
+				$error = $response['error'];
+				//update tables for one time
+				if($error!=1){
+					$error_message = $response['error_message'];
+					$charge = $response['result'];
+					
+					//get attributes for meta data
+					$project_pledge = get_post_meta($prid, 'project_pledge', true);
+		               		$project_pledge = ($project_pledge!=''?$project_pledge:0);
+		                	$project_level_amt = get_post_meta($prid, 'project_level_amount'.$level_id, true);
+		                	$project_level_match_amount = get_post_meta($prid, 'project_level_match_amount'.$level_id, true);
+		                
+		                	//one time pledge new or existing customer rzrprojectmeta
+		                	$this->add_project_pledge($prid, $current_user->ID, 'project_pledge', $project_level_amt, $level_id);
+		                	$this->update_project_meta($prid, $current_user->ID, 'project_payment_date', time(), $level_id);
+		                	add_post_meta($prid, 'project_pledge_by', $current_user->ID);
+		                	if ($project_level_match_amount != '') {$this->add_project_pledge($prid, $current_user->ID, 'project_match', $project_level_match_amount, $level_id);}
+		                	//send emails
+					$this-> send_pledge_receipt($current_user->user_email, $pr->post_title, $level_title, $project_level_amt);
+					$this-> send_owner_customer_checkout($pr->post_author, $pr->post_title, $level_title, $project_level_amt);
+					//add to mailchimp
+					$this-> add_mailchimp_subscriber($prid, $current_user->user_email);
+				}
+			}
+			
+			//if recurring  and customer then
+			//check for plan in wp and stripe and create if not exists
+			//subscribe the customer to the plan with trial date if applicable
+			//update tables for recurring and send emails
+			
+			//if no error redirect
+			//else go back to step 3 with error
+			
 		         if($_POST['recurring']!='')
 		          {
 		            $level_pmts = get_post_meta($prid, 'project_level_pmts'.$level_id, true);
@@ -483,12 +540,22 @@
 
 		            if($stripe_user_id=='')
 		            {
-				   $response = $this->create_stripe_customer($current_user->ID, $connected_account, $token);
+				$response = $this->create_stripe_customer($current_user->ID, $connected_account, $token);
 				    	$error = $response['error'];
 					$error_message = $response['error_message'];
 					$customer = $response['result'];
 		             
-		              if($error!=1){ $customer_arr = $customer->__toArray(true); }
+		              	if($error!=1){ $customer_arr = $customer->__toArray(true); 
+					if($connected_account){
+				        	 $wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `connected`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', '".$connected_account."', NOW())"); 	
+					}
+					else{
+				         	$wpdb->query("INSERT INTO ".$wpdb->prefix."rzr_stripe_users(`user_id`, `stripe_user_id`, `created_on`) VALUES(".$current_user->ID.", '".$customer_arr['id']."', NOW())"); 
+					}
+				}
+			    }
+				    
+				
 		              if(!empty($customer_arr))
 		              {
 		                if($customer_arr['id']!='')
