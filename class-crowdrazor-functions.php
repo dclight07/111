@@ -123,6 +123,10 @@
 			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
 			$connected_fees = get_option('rzr_stripe_fee_amount');
 			$fixed_connected_fees = round(($connected_fees * $level_amount), 2);
+			require 'stripe/vendor/autoload.php';
+			$stripe_keys = $this->get_stripe_keys();
+			$api_key = $stripe_keys['stripe_secret_key'];
+			\Stripe\Stripe::setApiKey($api_key);
 			$args = array(
 				"amount" => $level_amount*100, // amount in cents, again
 		                "currency" => "usd",
@@ -210,6 +214,13 @@
 			return $response;
 		}
 
+		function confirm_stripe_plan($stripe_plan_id=0){
+			//take the plan ID and confirm it exists in stripe
+			require 'stripe/vendor/autoload.php';
+			$stripe_keys = $this->get_stripe_keys();
+			$api_key = $stripe_keys['stripe_secret_key'];
+			\Stripe\Stripe::setApiKey($api_key);
+		}
 		function create_stripe_plan($user_id, $level_id=0, $prid=0, $connected_account=0){
 			global $wpdb;
 			$this->clear_stripe_error($user_id);
@@ -230,6 +241,10 @@
 					$interval = 'week'; 
 				}
 			}
+			require 'stripe/vendor/autoload.php';
+			$stripe_keys = $this->get_stripe_keys();
+			$api_key = $stripe_keys['stripe_secret_key'];
+			\Stripe\Stripe::setApiKey($api_key);
 			try{
 				if($connected_account){
 					$result = \Stripe\Plan::create(array(
@@ -327,6 +342,10 @@
 			$this->clear_stripe_error($user_id);
 			$error=0;
 			$connected_fees = get_option('rzr_stripe_fee_amount');
+			require 'stripe/vendor/autoload.php';
+			$stripe_keys = $this->get_stripe_keys();
+			$api_key = $stripe_keys['stripe_secret_key'];
+			\Stripe\Stripe::setApiKey($api_key);
 			try{
 				if($connected_account){
 		              	  	$args_stripe = array(
@@ -427,6 +446,34 @@
 			}				       
 			return $response;
 		}
+		
+		function exchange_plaid_token($public_token=0, $account_id=0){
+			if(get_option('rzr_stripe_test_mode') == "on"){
+				$plaid_url = 'https://tartan.plaid.com/exchange_token';
+			} else {
+				$plaid_url = 'https://api.plaid.com/exchange_token';
+			}
+			$ch = curl_init();
+			curl_setopt_array($ch, array(
+				CURLOPT_RETURNTRANSFER => true,
+				//swap out tartan for production based on test mode
+				CURLOPT_URL => $plaid_url,
+				CURLOPT_POST => true,
+				CURLOPT_HTTPHEADER, array(
+					'Content-Type: application/x-www-form-urlencoded',
+					),
+				CURLOPT_POSTFIELDS => http_build_query(array(
+					'client_id' => get_option('rzr_plaid_client_id'),
+					'secret' => get_option('rzr_plaid_secret'),
+					'public_token' => $public_token,
+					'account_id' => $account_id,
+					)),
+				));
+			$response = json_decode(curl_exec($ch),true);
+			curl_close($ch);
+			$token = $response['stripe_bank_account_token'];
+			return $token;
+		}
 
 ///update customer card function that already exists may work for card and bank
 
@@ -434,35 +481,12 @@
 		if(isset($_POST['stripeToken']) || isset($_POST['public_token']))
 		    {	
 		    		if(isset($_POST['public_token'])){
-						$public_token = $_POST['public_token'];
-						$account_id = $_POST['account_id'];
-						if(get_option('rzr_stripe_test_mode') == "on"){
-								$plaid_url = 'https://tartan.plaid.com/exchange_token';
-						} else {
-								$plaid_url = 'https://api.plaid.com/exchange_token';
-						}
-						$ch = curl_init();
-						curl_setopt_array($ch, array(
-							CURLOPT_RETURNTRANSFER => true,
-							//swap out tartan for production based on test mode
-							CURLOPT_URL => $plaid_url,
-							CURLOPT_POST => true,
-							CURLOPT_HTTPHEADER, array(
-								'Content-Type: application/x-www-form-urlencoded',
-							),
-							CURLOPT_POSTFIELDS => http_build_query(array(
-								'client_id' => get_option('rzr_plaid_client_id'),
-								'secret' => get_option('rzr_plaid_secret'),
-								'public_token' => $public_token,
-								'account_id' => $account_id,
-							)),
-						));
-						$response = json_decode(curl_exec($ch),true);
-						curl_close($ch);
-						$token = $response['stripe_bank_account_token'];
+					$public_token = $_POST['public_token'];
+					$account_id = $_POST['account_id'];
+					$token=$this->exchange_plaid_token($public_token, $account_id);
 				} 
 				else {
-						$token = $_POST['stripeToken'];
+					$token = $_POST['stripeToken'];
 				}
 				
 			global $current_user;
@@ -530,7 +554,11 @@
 		         {
 		         	$customer_id = $wpdb->get_var("SELECT `stripe_user_id` FROM ".$wpdb->prefix."rzr_stripe_users WHERE `user_id`=".$current_user->ID);		
 		         }
-				
+			
+			//if customer exists and new pmt method provided update the customer
+			if($customer && $token){
+				$this->update_TBD($customer_id, $token);
+			}
 			//create stripe customer if blank
 		        if($customer_id=='')
 		        {
@@ -541,27 +569,23 @@
 		             		$customer_id = $response['customer_id';
 				}
 			}
-		         
-			//one time charge
+			//one time charge if the  customer creation has an error customer id wont exist and this wont process
 			if($_POST['recurring']=='' && $customer_id){
 				//charge customer
 				$response = $this->create_stripe_charge($current_user->ID, $customer_id, $level_id, $prid, $connected_account);
 				$error = $response['error'];
 				//update tables for one time
 				if($error!=1){
-					$error_message = $response['error_message'];
-					$charge = $response['result'];
-					
+					//get charge id - not sure we actually need this next row
+					$charge = $response['charge_id'];
 					//get attributes for meta data
 					$project_pledge = get_post_meta($prid, 'project_pledge', true);
 		               		$project_pledge = ($project_pledge!=''?$project_pledge:0);
 		                	$project_level_amt = get_post_meta($prid, 'project_level_amount'.$level_id, true);
 		                	$project_level_match_amount = get_post_meta($prid, 'project_level_match_amount'.$level_id, true);
-		                
 		                	//one time pledge new or existing customer rzrprojectmeta
 		                	$this->add_project_pledge($prid, $current_user->ID, 'project_pledge', $project_level_amt, $level_id);
 		                	$this->update_project_meta($prid, $current_user->ID, 'project_payment_date', time(), $level_id);
-		                	add_post_meta($prid, 'project_pledge_by', $current_user->ID);
 		                	if ($project_level_match_amount != '') {$this->add_project_pledge($prid, $current_user->ID, 'project_match', $project_level_match_amount, $level_id);}
 		                	//send emails
 					$this-> send_pledge_receipt($current_user->user_email, $pr->post_title, $level_title, $project_level_amt);
@@ -570,11 +594,23 @@
 					$this-> add_mailchimp_subscriber($prid, $current_user->user_email);
 				}
 			}
-			
+			if($_POST['recurring']!='' && $customer_id){
 			//if recurring  and customer then
 			//check for plan in wp and stripe and create if not exists
+				if($connected_account)
+		            	{
+		            		$stripe_plan_id = $wpdb->get_var("SELECT `stripe_plan_id` FROM ".$wpdb->prefix."rzr_stripe_plans WHERE project_id='".$prid."' AND level_id='".$level_id."' AND connected='".$connected_account."'");
+		            	}
+		            	else
+		            	{
+		            		$stripe_plan_id = $wpdb->get_var("SELECT `stripe_plan_id` FROM ".$wpdb->prefix."rzr_stripe_plans WHERE project_id='".$prid."' AND level_id='".$level_id."'");
+		            	}
+				if($stripe_plan_id){
+					$result = $this->confirm_stripe_plan($stripe_plan_id);
+				}
 			//subscribe the customer to the plan with trial date if applicable
 			//update tables for recurring and send emails
+			}
 			
 			//if no error redirect
 			//else go back to step 3 with error
