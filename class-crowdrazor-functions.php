@@ -89,8 +89,6 @@
 				$error=1;
 				$error_message = $err['message'];
 				}
-		              	
-		            }
 			if($error!=1){
 				$customer_arr = $result->__toArray(true); 
 				if($connected_account){
@@ -193,8 +191,6 @@
 				$error=1;
 				$error_message = $err['message'];
 				}
-		              	
-		            }
 			if($error!=1){
 				$charge_arr = $result->__toArray(true);
 				$response=array(
@@ -216,10 +212,66 @@
 
 		function confirm_stripe_plan($stripe_plan_id=0){
 			//take the plan ID and confirm it exists in stripe
+			$error=0;
 			require 'stripe/vendor/autoload.php';
 			$stripe_keys = $this->get_stripe_keys();
 			$api_key = $stripe_keys['stripe_secret_key'];
 			\Stripe\Stripe::setApiKey($api_key);
+			
+			try{
+				$result = \Stripe\Plan::retrieve($stripe_plan_id);
+			}
+			catch(\Stripe\Error\Card $e) {
+  				// Since it's a decline, \Stripe\Error\Card will be caught
+  				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\RateLimit $e) {
+				// Too many requests made to the API too quickly
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\InvalidRequest $e) {
+				// Invalid parameters were supplied to Stripe's API
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Authentication $e) {
+				// Authentication with Stripe's API failed
+				// (maybe you changed API keys recently)
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\ApiConnection $e) {
+				// Network communication with Stripe failed
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (\Stripe\Error\Base $e) {
+				// Display a very generic error to the user, and maybe send
+				// yourself an email
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				} catch (Exception $e) {
+				// Something else happened, completely unrelated to Stripe
+				$body = $e->getJsonBody();
+				$err  = $body['error'];
+				$error=1;
+				$error_message = $err['message'];
+				}
+		 	if($error!=1){
+				return true;
+			}
+			else{
+				return false;
+			}
 		}
 		function create_stripe_plan($user_id, $level_id=0, $prid=0, $connected_account=0){
 			global $wpdb;
@@ -312,7 +364,6 @@
 				$error=1;
 				$error_message = $err['message'];
 				}
-		        }
 			if($error!=1){
 				$plan_arr = $result->__toArray(true);
 				$response=array(
@@ -421,7 +472,6 @@
 				$error=1;
 				$error_message = $err['message'];
 				}
-		        }
 			if($error!=1){
 				$subs_arr = $result->__toArray(true);
 				$response=array(
