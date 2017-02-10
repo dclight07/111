@@ -217,7 +217,6 @@
 			$stripe_keys = $this->get_stripe_keys();
 			$api_key = $stripe_keys['stripe_secret_key'];
 			\Stripe\Stripe::setApiKey($api_key);
-			
 			try{
 				$result = \Stripe\Plan::retrieve($stripe_plan_id);
 			}
@@ -389,7 +388,8 @@
 			return $response;
 		}
 
-		function create_stripe_subscription($user_id=0, $customer=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0, $connected_account=0){
+		function create_stripe_subscription($user_id=0, $customer_id=0, $plan_id=0, $prid=0, $level_id=0, $trial_end=0, $connected_account=0){
+			global $wpdb;
 			$this->clear_stripe_error($user_id);
 			$error=0;
 			$connected_fees = get_option('rzr_stripe_fee_amount');
@@ -400,7 +400,7 @@
 			try{
 				if($connected_account){
 		              	  	$args_stripe = array(
-				                "customer" => $customer,
+				                "customer" => $customer_id,
 		                    		"plan" => $plan_id,
 		                    		'application_fee_percent' => $connected_fees,
 		                    		"metadata" => array("project_id" => $prid, "level_id"=>$level_id)
@@ -415,7 +415,7 @@
 		         	} 
 				else{
 					$args_stripe = array(
-				           	"customer" => $customer_arr['id'],
+				           	"customer" => $customer_id,
 		                    		"plan" => $strip_plan_id,
 		                    		'application_fee_percent' => $connected_fees,
 		                    		"metadata" => array("project_id" => $prid, "level_id"=>$level_id)
@@ -542,13 +542,17 @@
 			global $current_user;
 			global $wpdb;
 			$level_id = $_POST['level_id'];
+			$trial_end = $_POST['trial_end'];
 			$prid = $_POST['prid'];
 			$pr = get_post($prid);
+			$user_info = get_userdata($user_id);
+  			$user_email = $user_info->user_email; 
 			$level_title = get_post_meta($prid, 'project_level_title'.$level_id, true);
 			$level_checkout_stmt = get_post_meta($prid, 'project_checkout_stmt'.$level_id, true);
 			$level_description = get_post_meta($prid, 'project_level_description'.$level_id, true);
 			$level_amount = (get_post_meta($prid, 'project_level_amount'.$level_id, true)!=''?get_post_meta($prid, 'project_level_amount'.$level_id, true):0);
 			$level_type = (get_post_meta($prid, 'project_leveltype'.$level_id, true)!=''?get_post_meta($prid, 'project_leveltype'.$level_id, true):'one-time');
+			$connected_account = $this->get_connected_stripe_account($pr->post_author);
 			if($level_type == 'recurring')
 				{
 				  $recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
@@ -592,9 +596,7 @@
 		         			add_user_meta($current_user->ID, 'rzr_custom_meta_'.$x, $_POST['rzr_custom_meta_'.$x]);
 		         		}
 		         	}
-			}
-		         $connected_account = $this->get_connected_stripe_account($pr->post_author);
-		         
+			}         
 			//get stripe customer id
 			if($connected_account)
 		         {
@@ -616,7 +618,7 @@
 				    	$error = $response['error'];
 		              	if($error!=1){ 
 					$error_message = $response['error_message'];
-		             		$customer_id = $response['customer_id';
+		             		$customer_id = $response['customer_id'];
 				}
 			}
 			//one time charge if the  customer creation has an error customer id wont exist and this wont process
@@ -638,10 +640,10 @@
 		                	$this->update_project_meta($prid, $current_user->ID, 'project_payment_date', time(), $level_id);
 		                	if ($project_level_match_amount != '') {$this->add_project_pledge($prid, $current_user->ID, 'project_match', $project_level_match_amount, $level_id);}
 		                	//send emails
-					$this-> send_pledge_receipt($current_user->user_email, $pr->post_title, $level_title, $project_level_amt);
+					$this-> send_pledge_receipt($user_email, $pr->post_title, $level_title, $project_level_amt);
 					$this-> send_owner_customer_checkout($pr->post_author, $pr->post_title, $level_title, $project_level_amt);
 					//add to mailchimp
-					$this-> add_mailchimp_subscriber($prid, $current_user->user_email);
+					$this-> add_mailchimp_subscriber($prid, $user_email);
 				}
 			}
 			if($_POST['recurring']!='' && $customer_id){
@@ -656,14 +658,55 @@
 		            		$stripe_plan_id = $wpdb->get_var("SELECT `stripe_plan_id` FROM ".$wpdb->prefix."rzr_stripe_plans WHERE project_id='".$prid."' AND level_id='".$level_id."'");
 		            	}
 				if($stripe_plan_id){
-					$result = $this->confirm_stripe_plan($stripe_plan_id);
 				}
-			//subscribe the customer to the plan with trial date if applicable
-			//update tables for recurring and send emails
+				else {
+					//create plan
+					$response=$this->create_stripe_plan($user_id, $level_id, $prid, $connected_account);
+					$error = $response['error'];
+					if($error!=1){
+						$stripe_plan_id = $response['plan_id'];
+					}
+				}
+				//confirm plan in stripe and then subscribe
+				if($this->confirm_stripe_plan($stripe_plan_id)==true){
+					//subscribe customer to plan
+					$response = $this->create_stripe_subscription($user_id, $customer_id, $stripe_plan_id, $prid, $level_id, $trial_end, $connected_account)
+					$error = $response['error'];
+				}
+				if($error!=1){
+					//update tables for recurring and send emails
+					$project_level_amt = get_post_meta($prid, 'project_level_amount'.$level_id, true);
+					$project_level_match_amount = get_post_meta($prid, 'project_level_match_amount'.$level_id, true);
+					$pledge_recurring = get_post_meta($prid, 'project_level_recurring'.$level_id, true);
+					$time = ($trial_end!=''?$trial_end:time());
+					$level_pmts = get_post_meta($prid, 'project_level_pmts'.$level_id, true);
+							
+					//recurring pledge new customer project meta rzrprojectmeta
+					$this-> add_project_pledge($prid, $current_user->ID, 'project_pledge', $project_level_amt, $level_id);
+					$this-> add_project_pledge($prid, $current_user->ID, 'project_pledge_recurring', $pledge_recurring, $level_id);
+					if ($project_level_match_amount != '') {$this->add_project_pledge($prid, $current_user->ID, 'project_match', $project_level_match_amount, $level_id);}
+					$this->update_project_meta($prid, $current_user->ID, 'project_payment_date', $time, $level_id);
+		                	$this->update_project_meta($prid, $current_user->ID, 'project_pledge_start', $time, $level_id);
+		                	$this->update_project_meta($prid, $current_user->ID, 'project_remaining_payments', $level_pmts, $level_id);
+		                	//send emails
+					$this-> send_pledge_receipt($user_email, $pr->post_title, $level_title, $project_level_amt);
+					$this-> send_owner_customer_checkout($pr->post_author, $pr->post_title, $level_title, $project_level_amt);
+					$this-> add_mailchimp_subscriber($prid, $user_email);
+				}
+		                   	
 			}
+			if($error!=1){
+				//if no error redirect to final checkout
+				wp_redirect(get_permalink($prid).'?level='.$level_id.'&checkout=final');
+				die;
+			}
+			else {
+				//else go back to step 3 with error
+				wp_redirect(get_permalink($prid).'?level='.$level_id.'&checkout=step3&error=1');
+				die;
+			}
+		}
 			
-			//if no error redirect
-			//else go back to step 3 with error
 			
 		         if($_POST['recurring']!='')
 		          {
